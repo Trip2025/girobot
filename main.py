@@ -470,7 +470,7 @@ if __name__ == '__main__':
     scheduler_thread.start()
     print("Sending initial test message...")
     send_girobot_update()
-    app.run(host='0.0.0.0', port=3000)
+    app.run(host='0.0.0.0', port=5000)
 else:
     # This ensures the scheduler runs when deployed with Gunicorn or similar
     scheduler_thread.start()
