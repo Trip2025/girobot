@@ -8,7 +8,7 @@ print("Sending WhatsApp message with the latest stage results...")
 success = send_girobot_update()
 
 if success:
-    print("✅ WhatsApp message with Stage 2 results sent successfully!")
+    print("✅ WhatsApp message with the latest stage results sent successfully!")
     print("Check your WhatsApp for the Giro d'Italia update.")
     print("Daily updates will continue automatically until the race concludes on May 25th.")
 else:

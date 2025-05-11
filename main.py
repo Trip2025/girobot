@@ -299,7 +299,7 @@ def manual_trigger():
             </head>
             <body>
                 <h2 class="success">✅ Manual GiroBot update sent successfully!</h2>
-                <p>Check your WhatsApp for the message with Stage 2 results.</p>
+                <p>Check your WhatsApp for the Giro d'Italia update.</p>
                 <p><a href="/">Back to home</a></p>
             </body>
         </html>
