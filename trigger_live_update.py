@@ -2,8 +2,8 @@
 from main import send_girobot_update
 import time
 
-print("Triggering live GiroBot update for Stage 2 results...")
-print("Sending WhatsApp message with Stage 2 results...")
+print("Triggering live GiroBot update for the most recent stage results...")
+print("Sending WhatsApp message with the latest stage results...")
 
 success = send_girobot_update()
 

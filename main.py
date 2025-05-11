@@ -54,13 +54,20 @@ def get_giro_update():
         datetime(2025, 5, 25).date(): 21, # Stage 21 (final)
     }
     
-    # For testing purposes, if we're running a manual trigger, use Stage 2
-    stage_num = 2
+    # For manual triggers or testing, use the most recent completed stage
     stage_date = today.date()
+    actual_stage_number = None
     
-    # Check if we're in the Giro period - if yes, use the actual stage
-    if stage_date in giro_stages:
-        stage_num = giro_stages[stage_date]
+    # Determine the last completed stage
+    completed_dates = [date for date in giro_stages.keys() if date <= stage_date]
+    if completed_dates:
+        last_completed_date = max(completed_dates)
+        actual_stage_number = giro_stages[last_completed_date]
+    else:
+        # If no stages completed yet (before the Giro starts)
+        actual_stage_number = 2  # Default to stage 2 for testing before Giro starts
+    
+    stage_num = actual_stage_number
     
     # Stage details - predefined based on stage number
     stage_data = {
