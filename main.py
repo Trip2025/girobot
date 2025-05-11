@@ -8,6 +8,7 @@ from twilio.rest import Client
 import os
 import requests
 import json
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
@@ -18,6 +19,131 @@ from_whatsapp_number = os.environ['TWILIO_FROM_NUMBER']
 to_whatsapp_number = os.environ['TO_NUMBER']
 
 client = Client(account_sid, auth_token)
+
+def fetch_giro_stage_results(stage_num):
+    """
+    Fetch the Giro d'Italia stage results from CyclingNews website
+    """
+    try:
+        url = f"https://www.cyclingnews.com/races/giro-d-italia-2025/stage-{stage_num}/results/"
+        response = requests.get(url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+        
+        if response.status_code != 200:
+            print(f"Error fetching results: HTTP {response.status_code}")
+            return None
+            
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Find results table - this selector might need to be adjusted based on actual page structure
+        result_table = soup.select_one('.results-table')
+        
+        if not result_table:
+            print("No results table found on the page")
+            return None
+            
+        # Extract top 3 finishers
+        riders = result_table.select('tbody tr')
+        
+        if not riders or len(riders) < 3:
+            print("Could not find enough rider data")
+            return None
+            
+        # Extract stage winner and top 3
+        stage_winner_row = riders[0]
+        second_place_row = riders[1]
+        third_place_row = riders[2]
+        
+        # Parse data - adjust selectors based on actual HTML structure
+        try:
+            stage_winner = stage_winner_row.select_one('.rider-name').text.strip()
+            stage_winner_team = stage_winner_row.select_one('.team-name').text.strip()
+            stage_time = stage_winner_row.select_one('.time').text.strip()
+            
+            second_place = second_place_row.select_one('.rider-name').text.strip()
+            third_place = third_place_row.select_one('.rider-name').text.strip()
+            
+            # Extract jersey information
+            jersey_section = soup.select_one('.jersey-classifications')
+            pink_jersey = "Data not available"
+            points_jersey = "Data not available"
+            kom_jersey = "Data not available"
+            youth_jersey = "Data not available"
+            
+            if jersey_section:
+                jersey_items = jersey_section.select('.jersey-item')
+                for item in jersey_items:
+                    jersey_type = item.select_one('.jersey-type').text.strip().lower()
+                    jersey_holder = item.select_one('.jersey-holder').text.strip()
+                    
+                    if 'pink' in jersey_type or 'rosa' in jersey_type:
+                        pink_jersey = jersey_holder
+                    elif 'points' in jersey_type or 'ciclamino' in jersey_type:
+                        points_jersey = jersey_holder
+                    elif 'mountain' in jersey_type or 'azzurra' in jersey_type:
+                        kom_jersey = jersey_holder
+                    elif 'youth' in jersey_type or 'bianca' in jersey_type:
+                        youth_jersey = jersey_holder
+            
+            # Extract top story/headline
+            headline = soup.select_one('h1.article-title')
+            top_story = headline.text.strip() if headline else f"Stage {stage_num} complete"
+            
+            # Find Lidl-Trek related info
+            lidl_trek_highlight = "No specific highlights available"
+            team_standing = "Position not available"
+            
+            # Look for Lidl-Trek in team standings
+            team_standings_section = soup.select_one('.team-standings')
+            if team_standings_section:
+                lidl_trek_row = None
+                for row in team_standings_section.select('tr'):
+                    if 'Lidl-Trek' in row.text:
+                        lidl_trek_row = row
+                        break
+                
+                if lidl_trek_row:
+                    position = lidl_trek_row.select_one('.position').text.strip()
+                    team_standing = f"{position} in Team Classification"
+            
+            # Look for Lidl-Trek riders in results
+            lidl_trek_riders = []
+            for rider_row in riders:
+                if 'Lidl-Trek' in rider_row.text:
+                    rider_name = rider_row.select_one('.rider-name').text.strip()
+                    rider_pos = rider_row.select_one('.position').text.strip()
+                    lidl_trek_riders.append((rider_name, rider_pos))
+            
+            if lidl_trek_riders:
+                best_placed = min(lidl_trek_riders, key=lambda x: int(x[1]))
+                lidl_trek_highlight = f"{best_placed[0]} finished {best_placed[1]} for Lidl-Trek"
+                
+            return {
+                "stage_num": str(stage_num),
+                "stage_winner": stage_winner,
+                "team": stage_winner_team,
+                "second": second_place,
+                "third": third_place,
+                "time": stage_time,
+                "lidl_trek_highlight": lidl_trek_highlight,
+                "team_standing": team_standing,
+                "team_safety": "All riders finished safely",  # Default assumption
+                "pink_jersey": pink_jersey,
+                "points_jersey": points_jersey,
+                "kom_jersey": kom_jersey,
+                "youth_jersey": youth_jersey,
+                "top_story": top_story,
+                "link": url
+            }
+        except Exception as e:
+            print(f"Error parsing race data: {str(e)}")
+            return None
+            
+    except Exception as e:
+        print(f"Error fetching stage results: {str(e)}")
+        return None
 
 def get_giro_update():
     """
@@ -54,18 +180,31 @@ def get_giro_update():
         datetime(2025, 5, 25).date(): 21, # Stage 21 (final)
     }
     
-    # For testing and development before the actual race begins in 2025
-    # Just use stage 2 as a fixed stage for demonstration
-    stage_num = 2
+    # Determine current stage
+    stage_date = today.date()
+    actual_stage_number = None
     
-    # Enable this code when the race is actually happening
-    # stage_date = today.date()
-    # completed_dates = [date for date in giro_stages.keys() if date <= stage_date]
-    # if completed_dates:
-    #     last_completed_date = max(completed_dates)
-    #     stage_num = giro_stages[last_completed_date]
+    # Determine the last completed stage
+    completed_dates = [date for date in giro_stages.keys() if date <= stage_date]
+    if completed_dates:
+        last_completed_date = max(completed_dates)
+        actual_stage_number = giro_stages[last_completed_date]
+    else:
+        # If no stages completed yet (before the Giro starts)
+        actual_stage_number = 2  # Default to stage 2 for testing before Giro starts
     
-    # Stage details - predefined based on stage number
+    stage_num = actual_stage_number
+    
+    # Try to fetch live data first
+    live_data = fetch_giro_stage_results(stage_num)
+    if live_data:
+        print(f"Successfully fetched live data for Stage {stage_num}")
+        live_data["date"] = date_str
+        return live_data
+    
+    print(f"Could not fetch live data, falling back to static data for Stage {stage_num}")
+    
+    # Fallback to static data if web scraping fails
     stage_data = {
         1: {
             "stage_num": "1",
