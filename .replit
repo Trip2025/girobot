@@ -11,9 +11,21 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["python3", "main.py"]
+run = ["sh", "-c", "python main.py"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
 localPort = 3000
 externalPort = 80
+
+[workflows]
+runButton = "GiroBot WhatsApp Service"
+
+[[workflows.workflow]]
+name = "GiroBot WhatsApp Service"
+author = 38714718
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
