@@ -1,3 +1,5 @@
 flask
 twilio
 pytz
+requests
+beautifulsoup4
